@@ -2538,21 +2538,23 @@ function ' . $this->js['prefix'] . 'filter_handler(theForm, theEvent)
         return $name;
     }
 
-    public function number_of_recs()
+    function number_of_recs()
     {
         // Optimization: Count only the primary table with filters
-        // We bypass get_SQL_join_clause() to avoid expensive JOINs
+        // We add the AS alias so the WHERE clause (which uses PMEtable0) works correctly
         $table_name = $this->sd . $this->tb . $this->ed;
+        $alias = $this->sd . 'PMEtable0' . $this->ed;
         $where_clause = $this->get_SQL_where_from_query_opts();
-
-        $query = "SELECT COUNT(*) FROM $table_name";
+        
+        $query = "SELECT COUNT(*) FROM $table_name AS $alias";
+        
         if (!empty($where_clause)) {
             $query .= " WHERE $where_clause";
         }
-
+    
         $res = $this->myquery($query, __LINE__);
         $row = $this->sql_fetch($res, 'n');
-        $this->total_recs = $row[0];
+        $this->total_recs = (int)($row[0] ?? 0);
     }
 
     /*
@@ -2759,7 +2761,7 @@ function ' . $this->js['prefix'] . 'filter_handler(theForm, theEvent)
                     echo '<td class="',$css_class_name,'">';
                     if ($this->password($k)) {
                         echo '&nbsp;';
-                    } elseif ($this->fdd[$fd]['select'] == 'D' || $this->fdd[$fd]['select'] == 'M') {
+                    } elseif (($this->fdd[$fd]['select'] ?? '') == 'D' || ($this->fdd[$fd]['select'] ?? '') == 'M') {
                         $from_table = ! $this->col_has_values($k) || isset($this->fdd[$k]['values']['table']);
                         $vals = $this->set_values($k, ['*' => '*'], null, $from_table);
                         $selected = $mi;
@@ -2774,7 +2776,7 @@ function ' . $this->js['prefix'] . 'filter_handler(theForm, theEvent)
                             true,
                             true,
                         );
-                    } elseif ($this->fdd[$fd]['select'] == 'N' || $this->fdd[$fd]['select'] == 'T') {
+                    } elseif (($this->fdd[$fd]['select'] ?? '') == 'N' || ($this->fdd[$fd]['select'] ?? '') == 'T') {
                         $maxlen = (int) ($this->fdd[$k]['maxlen'] ?? 999);
                         if ($maxlen <= 0) {
                             $maxlen = (int) $this->sql_field_len($res, $fields["qf$k"]);
