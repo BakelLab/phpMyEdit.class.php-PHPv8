@@ -66,12 +66,22 @@ class phpMyEdit_export extends phpMyEdit
         if (isset($this->ext['exports']) && is_array($this->ext['exports'])) {
             $qstrparts = [];
             $sys_prefix = $this->cgi['prefix']['sys'] ?? '';
-            
-            if (strlen((string)$this->fl) > 0) $qstrparts[] = $sys_prefix . 'fl=' . $this->fl;
-            if (strlen((string)$this->fm) > 0) $qstrparts[] = $sys_prefix . 'fm=' . $this->fm;
-            if (strlen((string)$this->qfn) > 0) $qstrparts[] = $this->qfn;
-            if (is_array($this->sfn) && !empty($this->sfn)) $qstrparts[] = $this->get_sfn_cgi_vars();
-            if (strlen((string)($this->cgi['persist'] ?? '')) > 0) $qstrparts[] = $this->cgi['persist'];
+
+            if (strlen((string) $this->fl) > 0) {
+                $qstrparts[] = $sys_prefix . 'fl=' . $this->fl;
+            }
+            if (strlen((string) $this->fm) > 0) {
+                $qstrparts[] = $sys_prefix . 'fm=' . $this->fm;
+            }
+            if (strlen((string) $this->qfn) > 0) {
+                $qstrparts[] = $this->qfn;
+            }
+            if (is_array($this->sfn) && !empty($this->sfn)) {
+                $qstrparts[] = $this->get_sfn_cgi_vars();
+            }
+            if (strlen((string) ($this->cgi['persist'] ?? '')) > 0) {
+                $qstrparts[] = $this->cgi['persist'];
+            }
 
             $qstrparts[] = $sys_prefix . 'export=';
             $link_str    = htmlspecialchars($this->page_name . '?' . join('&', $qstrparts));
@@ -86,7 +96,7 @@ class phpMyEdit_export extends phpMyEdit
         } else {
             $exports_str = 'no&nbsp;exports';
         }
-        
+
         $message_ori = $this->message;
         $this->message = $exports_str . '</td><td>' . $this->message;
         parent::display_list_table_buttons($position);
@@ -108,7 +118,9 @@ class phpMyEdit_export extends phpMyEdit
         $this->backward_compatibility();
         $this->gather_query_opts();
 
-        if (ob_get_length()) ob_end_clean();
+        if (ob_get_length()) {
+            ob_end_clean();
+        }
 
         $export_type = $this->ext['export'] ?? '';
         $cfg = $this->ext['exports'][$export_type] ?? [];
@@ -117,23 +129,25 @@ class phpMyEdit_export extends phpMyEdit
         $trans_map = [];
         $header_cells = '';
         for ($k = 0; $k < $this->num_fds; $k++) {
-            if (!($this->displayed[$k] ?? false)) continue;
+            if (!($this->displayed[$k] ?? false)) {
+                continue;
+            }
 
             $fd = $this->fds[$k];
             $fdd_ext = $this->fdd[$fd]['ext'] ?? [];
-            
+
             // Map metadata for data loop
             $trans_map[$k] = [
                 'fd'    => $fd,
                 'is_pw' => $this->password($k),
                 'tmpl'  => $fdd_ext['cell'] ?? $cfg['cell'] ?? '$value',
-                'funcs' => (array)($fdd_ext['value'] ?? $cfg['value'] ?? [])
+                'funcs' => (array) ($fdd_ext['value'] ?? $cfg['value'] ?? []),
             ];
 
             // Map metadata for header generation
             $h_val = $fdd_ext['name'] ?? $this->fdd[$fd]['name'] ?? $fd;
             $h_tmpl = $fdd_ext['cell-h'] ?? $cfg['cell-h'] ?? $trans_map[$k]['tmpl'];
-            
+
             $header_cells .= $this->substituteVars($h_tmpl, ['value' => $h_val, 'name' => $h_val]);
         }
 
@@ -146,22 +160,26 @@ class phpMyEdit_export extends phpMyEdit
             'select' => $this->get_SQL_column_list(),
             'from'   => $this->get_SQL_join_clause(),
             'where'  => $this->get_SQL_where_from_query_opts(),
-            'limit'  => '' // Exports usually ignore pagination
+            'limit'  => '', // Exports usually ignore pagination
         ];
 
         if (isset($this->sfn) && is_array($this->sfn)) {
             $sort_fields = [];
             foreach ($this->sfn as $field) {
-                $desc = str_starts_with((string)$field, '-');
+                $desc = str_starts_with((string) $field, '-');
                 $actual_field = $desc ? substr($field, 1) : $field;
                 $sort_fields[] = $this->fqn($actual_field) . ($desc ? ' DESC' : '');
             }
-            if (!empty($sort_fields)) $qparts['orderby'] = join(',', $sort_fields);
+            if (!empty($sort_fields)) {
+                $qparts['orderby'] = join(',', $sort_fields);
+            }
         }
 
         $query = $this->get_SQL_query($qparts);
         $res   = $this->myquery($query, __LINE__);
-        if (!$res) return false;
+        if (!$res) {
+            return false;
+        }
 
         // 3. ROW PROCESSING WITH BUFFERING
         $row_changed_cfg = $cfg['row-on-change'] ?? [];
@@ -172,13 +190,15 @@ class phpMyEdit_export extends phpMyEdit
         while ($row = mysqli_fetch_array($res, MYSQLI_ASSOC)) {
             $cells = '';
             $assoc = [];
-            
+
             foreach ($trans_map as $k => $m) {
                 $val = $m['is_pw'] ? ($this->labels['hidden'] ?? '****') : ($row["qf$k"] ?? '');
                 foreach ($m['funcs'] as $fnc) {
-                    if (is_callable($fnc)) $val = $fnc((string)$val);
+                    if (is_callable($fnc)) {
+                        $val = $fnc((string) $val);
+                    }
                 }
-                $cells .= str_replace('$value', (string)$val, $m['tmpl']);
+                $cells .= str_replace('$value', (string) $val, $m['tmpl']);
                 $assoc[$m['fd']] = $val;
             }
 
@@ -198,10 +218,10 @@ class phpMyEdit_export extends phpMyEdit
         // 4. FINAL DELIVERY
         $content_type = $cfg['content-type'] ?? 'text/plain';
         $filename = $cfg['filename'] ?? 'export.txt'; // This now pulls 'export.csv' from your config
-        
+
         header('Content-Type: ' . $content_type);
         header('Content-Disposition: attachment; filename="' . $filename . '"');
-            
+
         $final_tmpl = $cfg['content'] ?? '$header$rows';
         echo $this->substituteVars($final_tmpl, ['header' => $export_header, 'rows' => $export_rows]);
         exit;
@@ -209,13 +229,13 @@ class phpMyEdit_export extends phpMyEdit
 
     public function export_operation()
     {
-        return strlen((string)($this->ext['export'] ?? '')) > 0;
+        return strlen((string) ($this->ext['export'] ?? '')) > 0;
     }
 
     public function displayed($k)
     {
         if ($this->export_operation()) {
-            $options = (string)($this->fdd[$k]['options'] ?? '');
+            $options = (string) ($this->fdd[$k]['options'] ?? '');
             if ($options !== '') {
                 return str_contains(strtoupper($options), 'X') || str_contains(strtoupper($options), 'L');
             }
